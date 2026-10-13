@@ -195,7 +195,7 @@ HTML_CONTENT = """<!DOCTYPE html>
       <div class="logo-container">
         <div class="logo-mark">🎙️</div>
         <div class="logo-text">
-          <h1>StudioVoice <span>AI</span></h1>
+          <h1>VoiceBnao <span>AI</span></h1>
         </div>
       </div>
       <div style="font-size:0.75rem; color:#10b981; font-weight:700;">● SYSTEM READY</div>
@@ -269,7 +269,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 
     function init() {
       document.getElementById('apiKeyInput').value = localStorage.getItem('sv_eleven_key') || '';
-      document.getElementById('scriptText').value = `सही जवाब है तीन।\\n\\nसवाल नंबर चार। कौन-सा पक्षी पीछे की तरफ भी उड़ सकता है?\\nसही जवाब है हमिंगबर्ड।\\n\\nसवाल नंबर पाँच। दुनिया का सबसे बड़ा रेगिस्तान कौन-सा है?\\nसही जवाब है अंटार्कटिका।`;
+      document.getElementById('scriptText').value = `Paste here!`;
       updateCounters();
 
       document.getElementById('scriptText').addEventListener('input', updateCounters);
