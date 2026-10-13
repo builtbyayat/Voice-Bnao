@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-VoiceBnao - Professional Text-to-Speech Web Studio
-- True Male & Female Voices (ElevenLabs Multilingual v2 + High-Fidelity Engine)
-- Automatic Deep Pitch Engine for authentic Male voiceovers
-- Modern Glassmorphism Studio UI & 1-Click Direct MP3 Download
+VoiceBnao - Professional Text-to-Speech Engine
+- Working Speed Control (Live in Player + permanently applied to downloaded MP3)
+- Restored Pure Natural Voices (Madhur Neural & ElevenLabs Adam/Charlie)
+- Zero distorted pitch hacks: Pure, clean natural human speech
 """
 
 import os, sys, json, hashlib, asyncio, http.server, socketserver, urllib.parse, urllib.request, re, subprocess
@@ -56,19 +56,19 @@ def check_content_safety(text):
 
     return True, "Safe"
 
+# ----------------- VOICES LIST -----------------
 VOICES_CONFIG = {
     "eleven": [
-        {"id": "pNInz6obpgDQGcFmaJgB", "name": "Adam", "desc": "Deep Narrator (YouTube/Shorts/GK)", "gender": "Male", "badge": "👨 MALE"},
-        {"id": "IKne3meq5aSn9XLyUdCD", "name": "Charlie", "desc": "Deep Storytelling & Mystery", "gender": "Male", "badge": "👨 MALE"},
-        {"id": "nPczCjzI2devNBz1zQrb", "name": "Brian", "desc": "Authoritative & Documentary", "gender": "Male", "badge": "👨 MALE"},
-        {"id": "JBFqnCBsd6RMkjVDRZzb", "name": "George", "desc": "Warm & Resonant Voiceover", "gender": "Male", "badge": "👨 MALE"},
-        {"id": "EXAVITQu4vr4xnSDxMaL", "name": "Sarah", "desc": "Clear & Natural Professional", "gender": "Female", "badge": "👩 FEMALE"}
+        {"id": "pNInz6obpgDQGcFmaJgB", "name": "Adam", "desc": "Original Deep Narrator", "gender": "Male", "badge": "👨 MALE"},
+        {"id": "IKne3meq5aSn9XLyUdCD", "name": "Charlie", "desc": "Deep Mystery & Story", "gender": "Male", "badge": "👨 MALE"},
+        {"id": "nPczCjzI2devNBz1zQrb", "name": "Brian", "desc": "Documentary Specialist", "gender": "Male", "badge": "👨 MALE"},
+        {"id": "JBFqnCBsd6RMkjVDRZzb", "name": "George", "desc": "Resonant Voiceover", "gender": "Male", "badge": "👨 MALE"},
+        {"id": "EXAVITQu4vr4xnSDxMaL", "name": "Sarah", "desc": "Natural Professional", "gender": "Female", "badge": "👩 FEMALE"}
     ],
     "neural": [
-        {"id": "hi-IN-MadhurNeural", "name": "Madhur (मधुर)", "desc": "Hindi Confident Male", "gender": "Male", "badge": "👨 MALE", "flag": "🇮🇳"},
+        {"id": "hi-IN-MadhurNeural", "name": "Madhur (मधुर)", "desc": "Pure Hindi Natural Male", "gender": "Male", "badge": "👨 MALE", "flag": "🇮🇳"},
+        {"id": "hi-IN-SwaraNeural", "name": "Swara (स्वरा)", "desc": "Pure Hindi Natural Female", "gender": "Female", "badge": "👩 FEMALE", "flag": "🇮🇳"},
         {"id": "en-IN-PrabhatNeural", "name": "Prabhat", "desc": "Indian English Male", "gender": "Male", "badge": "👨 MALE", "flag": "🇮🇳"},
-        {"id": "en-US-GuyNeural", "name": "Guy", "desc": "American English Male", "gender": "Male", "badge": "👨 MALE", "flag": "🇺🇸"},
-        {"id": "hi-IN-SwaraNeural", "name": "Swara (स्वरा)", "desc": "Hindi Natural Female", "gender": "Female", "badge": "👩 FEMALE", "flag": "🇮🇳"},
         {"id": "en-IN-NeerjaNeural", "name": "Neerja", "desc": "Indian English Female", "gender": "Female", "badge": "👩 FEMALE", "flag": "🇮🇳"}
     ]
 }
@@ -78,8 +78,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VoiceBnao - Text to Speech</title>
-  <meta name="description" content="Generate studio-quality AI voiceovers in Hindi & English with ElevenLabs and Neural Voice Engine.">
+  <title>VoiceBnao - Professional Text to Speech</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -90,7 +89,6 @@ HTML_CONTENT = """<!DOCTYPE html>
       --surface-border: rgba(255, 255, 255, 0.08);
       --surface-hover: #161c29;
       --primary: #6366f1;
-      --primary-hover: #4f46e5;
       --primary-glow: rgba(99, 102, 241, 0.25);
       --accent: #8b5cf6;
       --success: #10b981;
@@ -100,28 +98,21 @@ HTML_CONTENT = """<!DOCTYPE html>
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', 'Noto Sans Devanagari', sans-serif; }
     body { background-color: var(--bg); color: var(--text); min-height: 100vh; padding: 24px 16px; display: flex; flex-direction: column; align-items: center; }
-    .wrapper { width: 100%; max-width: 920px; }
+    .wrapper { width: 100%; max-width: 900px; }
     
     header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 16px 24px; background: var(--surface); border: 1px solid var(--surface-border);
-      border-radius: var(--radius); margin-bottom: 24px;
+      border-radius: var(--radius); margin-bottom: 20px;
     }
     .logo-container { display: flex; align-items: center; gap: 12px; }
     .logo-mark {
       width: 40px; height: 40px; border-radius: 10px;
       background: linear-gradient(135deg, var(--primary), var(--accent));
       display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff;
-      box-shadow: 0 4px 14px var(--primary-glow);
     }
-    .logo-text h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+    .logo-text h1 { font-size: 1.15rem; font-weight: 700; }
     .logo-text span { color: var(--primary); }
-    .status-badge {
-      font-size: 0.75rem; font-weight: 600; padding: 6px 12px; border-radius: 999px;
-      background: rgba(16, 185, 129, 0.12); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.25);
-      display: flex; align-items: center; gap: 6px;
-    }
-    .status-dot { width: 6px; height: 6px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); }
 
     .engine-switcher {
       display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
@@ -135,30 +126,27 @@ HTML_CONTENT = """<!DOCTYPE html>
     }
     .engine-btn.active {
       background: var(--surface-hover); color: #fff; border: 1px solid var(--surface-border);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     .engine-btn.active.primary { color: #a5b4fc; border-color: rgba(99, 102, 241, 0.4); }
 
     .studio-panel {
       background: var(--surface); border: 1px solid var(--surface-border);
-      border-radius: 20px; padding: 28px; display: flex; flex-direction: column; gap: 20px;
+      border-radius: 20px; padding: 26px; display: flex; flex-direction: column; gap: 18px;
       box-shadow: 0 16px 40px rgba(0,0,0,0.4);
     }
 
     .api-card {
       background: rgba(99, 102, 241, 0.08); border: 1px dashed rgba(99, 102, 241, 0.35);
-      border-radius: 12px; padding: 14px 18px; display: flex; flex-direction: column; gap: 10px;
+      border-radius: 12px; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px;
     }
     .api-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-weight: 600; color: #c7d2fe; }
     .api-header a { color: #818cf8; text-decoration: none; font-size: 0.8rem; }
-    .api-header a:hover { text-decoration: underline; }
     .api-input {
       background: #090c14; border: 1px solid var(--surface-border); color: #fff;
       padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; outline: none; width: 100%;
     }
-    .api-input:focus { border-color: var(--primary); }
 
-    .controls-grid { display: grid; grid-template-columns: 1.3fr 0.7fr; gap: 16px; }
+    .controls-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 14px; }
     @media (max-width: 640px) { .controls-grid { grid-template-columns: 1fr; } }
     .field-group { display: flex; flex-direction: column; gap: 8px; }
     .field-label { font-size: 0.82rem; font-weight: 600; color: var(--text-muted); display: flex; justify-content: space-between; }
@@ -167,8 +155,7 @@ HTML_CONTENT = """<!DOCTYPE html>
       width: 100%; background: #090c14; border: 1px solid var(--surface-border);
       color: #fff; padding: 12px 14px; border-radius: 10px; font-size: 0.95rem; outline: none;
     }
-    select:focus, textarea:focus { border-color: var(--primary); }
-    textarea { height: 190px; resize: vertical; line-height: 1.6; }
+    textarea { height: 180px; resize: vertical; line-height: 1.6; }
 
     .slider-container {
       background: #090c14; border: 1px solid var(--surface-border);
@@ -187,24 +174,17 @@ HTML_CONTENT = """<!DOCTYPE html>
     .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .player-card {
-      background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(16, 185, 129, 0.05));
-      border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 16px; padding: 22px;
-      display: none; flex-direction: column; gap: 16px;
+      background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3);
+      border-radius: 16px; padding: 20px; display: none; flex-direction: column; gap: 14px;
     }
     .player-card.active { display: flex; }
     
-    .player-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; }
-    .voice-badge-tag {
-      background: rgba(99, 102, 241, 0.2); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.4);
-      padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 0.75rem;
-    }
-    audio { width: 100%; border-radius: 8px; }
+    audio { width: 100%; }
 
     .btn-download-mp3 {
       background: linear-gradient(135deg, #10b981, #059669);
       color: white; border: none; padding: 14px; border-radius: 10px;
-      font-size: 0.95rem; font-weight: 700; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 8px;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer; text-align: center;
     }
     .counter-bar { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); }
   </style>
@@ -218,26 +198,23 @@ HTML_CONTENT = """<!DOCTYPE html>
           <h1>StudioVoice <span>AI</span></h1>
         </div>
       </div>
-      <div class="status-badge">
-        <span class="status-dot"></span>
-        <span>Studio Ready</span>
-      </div>
+      <div style="font-size:0.75rem; color:#10b981; font-weight:700;">● SYSTEM READY</div>
     </header>
 
     <div class="engine-switcher">
       <button class="engine-btn active primary" id="btnEleven" onclick="switchEngine('eleven')">
-        ✨ ElevenLabs Engine (Ultra Realistic)
+        ✨ 1. ElevenLabs (Adam / Charlie)
       </button>
       <button class="engine-btn" id="btnNeural" onclick="switchEngine('neural')">
-        ⚡ Neural Voice Engine (Free Backup)
+        ⚡ 2. Free Neural Engine (Madhur)
       </button>
     </div>
 
     <main class="studio-panel">
       <div class="api-card" id="apiCard">
         <div class="api-header">
-          <span>ElevenLabs API Key (Saved in browser):</span>
-          <a href="https://elevenlabs.io" target="_blank">Get 10,000 Chars Free ↗</a>
+          <span>ElevenLabs API Key:</span>
+          <a href="https://elevenlabs.io" target="_blank">Get Free Key (10k Chars) ↗</a>
         </div>
         <input type="password" class="api-input" id="apiKeyInput" placeholder="Paste your ElevenLabs API Key (sk_...)" oninput="saveKey(this.value)">
       </div>
@@ -253,17 +230,17 @@ HTML_CONTENT = """<!DOCTYPE html>
 
         <div class="field-group">
           <label class="field-label">
-            <span>Speed: <strong id="speedVal" style="color:var(--primary);">1.0x</strong></span>
+            <span>Speed Control: <strong id="speedVal" style="color:var(--primary);">1.0x</strong></span>
           </label>
           <div class="slider-container">
-            <input type="range" id="speedSlider" min="0.50" max="1.5" step="0.05" value="1.0" oninput="document.getElementById('speedVal').textContent=this.value+'x'">
+            <input type="range" id="speedSlider" min="0.5" max="1.5" step="0.05" value="1.0" oninput="onSpeedChange(this.value)">
           </div>
         </div>
       </div>
 
       <div class="field-group">
         <label class="field-label">
-          <span>Your Script (GK, Stories, Education):</span>
+          <span>Script Text:</span>
         </label>
         <textarea id="scriptText" placeholder="Enter your script here..."></textarea>
         <div class="counter-bar">
@@ -277,13 +254,7 @@ HTML_CONTENT = """<!DOCTYPE html>
       </button>
 
       <div class="player-card" id="playerCard">
-        <div class="player-meta">
-          <span class="voice-badge-tag" id="playerTag">ADAM • MALE</span>
-          <span style="font-size:0.75rem; color:var(--text-muted);">Format: MP3 • 44.1kHz</span>
-        </div>
-        
         <audio id="audioElement" controls preload="auto"></audio>
-
         <button class="btn-download-mp3" onclick="downloadMp3()">
           ⬇️ Download MP3 Audio File
         </button>
@@ -297,18 +268,29 @@ HTML_CONTENT = """<!DOCTYPE html>
     let currentBlob = null;
 
     function init() {
-      const saved = localStorage.getItem('sv_eleven_key') || '';
-      document.getElementById('apiKeyInput').value = saved;
-      
-      document.getElementById('scriptText').value = `Paste here!`;
+      document.getElementById('apiKeyInput').value = localStorage.getItem('sv_eleven_key') || '';
+      document.getElementById('scriptText').value = `सही जवाब है तीन।\\n\\nसवाल नंबर चार। कौन-सा पक्षी पीछे की तरफ भी उड़ सकता है?\\nसही जवाब है हमिंगबर्ड।\\n\\nसवाल नंबर पाँच। दुनिया का सबसे बड़ा रेगिस्तान कौन-सा है?\\nसही जवाब है अंटार्कटिका।`;
       updateCounters();
 
       document.getElementById('scriptText').addEventListener('input', updateCounters);
       switchEngine('eleven');
+
+      const audio = document.getElementById('audioElement');
+      audio.addEventListener('play', () => {
+        audio.playbackRate = parseFloat(document.getElementById('speedSlider').value);
+      });
     }
 
     function saveKey(k) {
       localStorage.setItem('sv_eleven_key', k.trim());
+    }
+
+    function onSpeedChange(v) {
+      document.getElementById('speedVal').textContent = parseFloat(v).toFixed(2) + 'x';
+      const audio = document.getElementById('audioElement');
+      if (audio) {
+        audio.playbackRate = parseFloat(v);
+      }
     }
 
     function switchEngine(mode) {
@@ -358,14 +340,14 @@ HTML_CONTENT = """<!DOCTYPE html>
       const key = document.getElementById('apiKeyInput').value.trim();
 
       if (currentEngine === 'eleven' && !key) {
-        alert('Please enter your ElevenLabs API Key or switch to Neural Voice Engine tab.');
+        alert('Please enter your ElevenLabs API Key or switch to Free Neural Engine tab.');
         document.getElementById('apiKeyInput').focus();
         return;
       }
 
       const btn = document.getElementById('generateBtn');
       btn.disabled = true;
-      btn.innerHTML = '<span>⏳ Synthesizing Voice... Please wait</span>';
+      btn.innerHTML = '<span>⏳ Generating Voice at ' + speed.toFixed(2) + 'x...</span>';
 
       try {
         const res = await fetch('/api/tts', {
@@ -383,7 +365,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 
         const data = await res.json();
         if (!res.ok || data.error) {
-          throw new Error(data.error || 'Failed to synthesize audio');
+          throw new Error(data.error || 'Failed to generate audio');
         }
 
         const audioRes = await fetch(data.audio_url);
@@ -392,9 +374,10 @@ HTML_CONTENT = """<!DOCTYPE html>
 
         const player = document.getElementById('audioElement');
         player.src = blobUrl;
+        
+        player.playbackRate = speed;
         player.play();
 
-        document.getElementById('playerTag').textContent = `${select.options[select.selectedIndex].text}`;
         document.getElementById('playerCard').classList.add('active');
 
       } catch (err) {
@@ -410,7 +393,7 @@ HTML_CONTENT = """<!DOCTYPE html>
       const blobUrl = URL.createObjectURL(currentBlob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = `studiovoice_${Date.now()}.mp3`;
+      a.download = `voice_${Date.now()}.mp3`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -422,7 +405,25 @@ HTML_CONTENT = """<!DOCTYPE html>
 </html>
 """
 
-def generate_elevenlabs(text, voice_id, api_key, out_path):
+def apply_speed_ffmpeg(file_path, speed):
+    if abs(speed - 1.0) < 0.03:
+        return
+    temp_speed = str(file_path) + ".spd.mp3"
+    speed_clamped = max(0.5, min(2.0, speed))
+    try:
+        cmd = [
+            "ffmpeg", "-y", "-i", str(file_path),
+            "-filter:a", f"atempo={speed_clamped:.2f}",
+            "-vn", temp_speed
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if res.returncode == 0 and os.path.exists(temp_speed) and os.path.getsize(temp_speed) > 500:
+            os.replace(temp_speed, file_path)
+    except Exception:
+        if os.path.exists(temp_speed):
+            os.remove(temp_speed)
+
+def generate_elevenlabs(text, voice_id, speed, api_key, out_path):
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     req = urllib.request.Request(
         url,
@@ -438,6 +439,8 @@ def generate_elevenlabs(text, voice_id, api_key, out_path):
         with open(out_path, "wb") as f:
             f.write(resp.read())
 
+    apply_speed_ffmpeg(out_path, speed)
+
 def generate_edge(text, voice_id, speed, out_path):
     pct = int(round((speed - 1.0) * 100))
     rate_str = f"+{pct}%" if pct >= 0 else f"{pct}%"
@@ -446,7 +449,7 @@ def generate_edge(text, voice_id, speed, out_path):
         await comm.save(out_path)
     asyncio.run(_run())
 
-def generate_fallback_with_pitch(text, gender, speed, out_path):
+def generate_google_clean(text, lang_code, speed, out_path):
     chunks = re.findall(r'([^।\.\?!;\n]+[।\.\?!;\n]*)', text) or [text]
     audio_bytes = bytearray()
     for c in chunks:
@@ -458,34 +461,19 @@ def generate_fallback_with_pitch(text, gender, speed, out_path):
             if len(sub) + len(w) + 1 <= 150: sub = f"{sub} {w}".strip()
             else:
                 if sub:
-                    u = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=hi&q={urllib.parse.quote(sub)}"
+                    u = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={lang_code}&q={urllib.parse.quote(sub)}"
                     req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
                     with urllib.request.urlopen(req, timeout=10) as r: audio_bytes.extend(r.read())
                 sub = w
         if sub:
-            u = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=hi&q={urllib.parse.quote(sub)}"
+            u = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={lang_code}&q={urllib.parse.quote(sub)}"
             req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=10) as r: audio_bytes.extend(r.read())
 
-    raw_temp = str(out_path) + ".raw.mp3"
-    with open(raw_temp, "wb") as f:
+    with open(out_path, "wb") as f:
         f.write(audio_bytes)
 
-    if gender == "Male":
-        try:
-            cmd = [
-                "ffmpeg", "-y", "-i", raw_temp,
-                "-af", "asetrate=24000*0.78,aresample=24000,atempo=1.28",
-                str(out_path)
-            ]
-            subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-            if os.path.exists(raw_temp): os.remove(raw_temp)
-            return
-        except Exception:
-            pass
-
-    if os.path.exists(raw_temp):
-        os.replace(raw_temp, out_path)
+    apply_speed_ffmpeg(out_path, speed)
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -534,7 +522,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             eng = body.get("engine", "eleven")
             text = body.get("text", "").strip()
             voice = body.get("voice", "")
-            gender = body.get("gender", "Male")
             speed = float(body.get("speed", 1.0))
             key = body.get("api_key", "").strip()
 
@@ -546,18 +533,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": reason}).encode('utf-8'))
                 return
 
-            h = hashlib.md5(f"{eng}_{text}_{voice}_{gender}_{speed}".encode()).hexdigest()
+            h = hashlib.md5(f"{eng}_{text}_{voice}_{speed}".encode()).hexdigest()
             out_file = AUDIO_DIR / f"{h}.mp3"
 
             try:
                 if not out_file.exists():
                     if eng == "eleven":
-                        generate_elevenlabs(text, voice, key, str(out_file))
+                        generate_elevenlabs(text, voice, speed, key, str(out_file))
                     else:
                         try:
                             generate_edge(text, voice, speed, str(out_file))
                         except Exception:
-                            generate_fallback_with_pitch(text, gender, speed, str(out_file))
+                            lang = "hi" if "hi-" in voice else "en"
+                            generate_google_clean(text, lang, speed, str(out_file))
 
                 resp = json.dumps({"audio_url": f"/audio/{h}.mp3"}).encode()
                 self.send_response(200)
