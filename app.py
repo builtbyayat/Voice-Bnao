@@ -300,7 +300,7 @@ HTML_CONTENT = """<!DOCTYPE html>
       const saved = localStorage.getItem('sv_eleven_key') || '';
       document.getElementById('apiKeyInput').value = saved;
       
-      document.getElementById('scriptText').value = `सही जवाब है तीन।\\n\\nसवाल नंबर चार। कौन-सा पक्षी पीछे की तरफ भी उड़ सकता है?\\nसही जवाब है हमिंगबर्ड।\\n\\nसवाल नंबर पाँच। दुनिया का सबसे बड़ा रेगिस्तान कौन-सा है?\\nसही जवाब है अंटार्कटिका।`;
+      document.getElementById('scriptText').value = `Paste here!`;
       updateCounters();
 
       document.getElementById('scriptText').addEventListener('input', updateCounters);
