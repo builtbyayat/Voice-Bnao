@@ -85,6 +85,7 @@ HTML_CONTENT = """<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Google Search (SEO) Tags -->
   <title>Free AI Voice Studio - Text to Speech Hindi & English</title>
+  <meta name="google-site-verification" content="Wm3wIgECd21C9Trp2K75FLsyGXd3BevmwHErjXviYWM" />
   <meta name="description" content="मुफ्त AI वॉइस स्टूडियो - ElevenLabs और फ्री न्यूरल इंजन से बनाएं हाई-क्वालिटी हिन्दी और इंग्लिश ऑडियो।">
   <meta name="keywords" content="Text to speech Hindi, AI Voice Generator, ElevenLabs Free, YouTube Shorts voiceover">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+Devanagari:wght@500;600;700&display=swap" rel="stylesheet">
