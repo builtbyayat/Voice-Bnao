@@ -2,7 +2,6 @@
 import os, sys, json, hashlib, asyncio, http.server, socketserver, urllib.parse, urllib.request, re
 from pathlib import Path
 
-# Auto-install edge-tts
 try:
     import edge_tts
 except ImportError:
@@ -15,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent
 AUDIO_DIR = BASE_DIR / "audio_output"
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
-# ----------------- कड़े नैतिक व भाषा फ़िल्टर्स -----------------
+# ----------------- नैतिक व भाषा फ़िल्टर्स -----------------
 ADULT_WORDS = {
     "sex", "sexy", "nude", "porn", "erotic", "orgasm", "penis", "vagina", "boobs", "breast",
     "kiss", "kissing", "makeout", "strip", "lust", "seduce", "seduction", "horny", "intimate",
@@ -40,8 +39,6 @@ ABUSIVE_WORDS = {
 }
 
 def check_content_safety(text):
-    # 1. भाषा सुरक्षा जांच (सिर्फ हिन्दी, हिंग्लिश, इंग्लिश, नंबर्स और विराम चिह्नों की अनुमति)
-    # यह किसी अन्य विदेशी भाषा में चालाकी से लिखे गए शब्दों को सीधे रिजेक्ट कर देगा
     allowed_pattern = r'^[\u0900-\u097F\w\s.,?!:;\'"()/\-\n\r\t]+$'
     if not re.match(allowed_pattern, text):
         return False, "नैतिक सुरक्षा कारणों से केवल हिन्दी, हिंग्लिश और इंग्लिश स्क्रिप्ट्स की अनुमति है।"
@@ -50,16 +47,12 @@ def check_content_safety(text):
     clean_words = set(re.sub(r'[^\w\s]', ' ', clean).split())
 
     for w in clean_words:
-        if w in ADULT_WORDS:
-            return False, "अश्लील या वयस्क (Adult/NSFW) सामग्री नियमों के विरुद्ध है।"
-        if w in ABUSIVE_WORDS:
-            return False, "गाली-गलौज या नफरत फैलाने वाली भाषा की सख्त मनाही है।"
-        if w in ROMANTIC_WORDS:
-            return False, "रोमांटिक, उत्तेजक या अनैतिक शब्दों की अनुमति नहीं है।"
+        if w in ADULT_WORDS: return False, "अश्लील या वयस्क सामग्री नियमों के विरुद्ध है।"
+        if w in ABUSIVE_WORDS: return False, "गाली-गलौज या नफरत फैलाने वाली भाषा की सख्त मनाही है।"
+        if w in ROMANTIC_WORDS: return False, "रोमांटिक, उत्तेजक या अनैतिक शब्दों की अनुमति नहीं है।"
 
     for phrase in ["kiss me", "love you", "i love you", "hug me", "meri jaan", "pyaar karo", "gale lag"]:
-        if phrase in clean:
-            return False, "रोमांटिक या अवांछित वाक्य ब्लॉक कर दिए गए हैं।"
+        if phrase in clean: return False, "रोमांटिक या अवांछित वाक्य ब्लॉक कर दिए गए हैं।"
 
     return True, "Safe"
 
@@ -83,11 +76,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Google Search (SEO) Tags -->
-  <title>Free AI Voice Studio - Text to Speech Hindi & English</title>
-  <meta name="google-site-verification" content="Wm3wIgECd21C9Trp2K75FLsyGXd3BevmwHErjXviYWM" />
-  <meta name="description" content="मुफ्त AI वॉइस स्टूडियो - ElevenLabs और फ्री न्यूरल इंजन से बनाएं हाई-क्वालिटी हिन्दी और इंग्लिश ऑडियो।">
-  <meta name="keywords" content="Text to speech Hindi, AI Voice Generator, ElevenLabs Free, YouTube Shorts voiceover">
+  <title>Free AI Voice Studio - Text to Speech</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+Devanagari:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', sans-serif; }
@@ -97,10 +86,7 @@ HTML_CONTENT = """<!DOCTYPE html>
     .brand h1 { font-size: 1.25rem; font-weight: 700; }
     .brand span { color: #fbbc04; }
     .badge-halal { background: rgba(52, 168, 83, 0.15); color: #34a853; border: 1px solid rgba(52, 168, 83, 0.3); padding: 5px 12px; border-radius: 99px; font-size: 0.75rem; font-weight: 700; }
-    .disclaimer-banner {
-      background: rgba(234, 67, 53, 0.08); border: 1px solid rgba(234, 67, 53, 0.25);
-      border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.8rem; color: #fca5a5; line-height: 1.5;
-    }
+    .disclaimer-banner { background: rgba(234, 67, 53, 0.08); border: 1px solid rgba(234, 67, 53, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.8rem; color: #fca5a5; line-height: 1.5; }
     .tabs { display: flex; background: #111728; border: 1px solid rgba(255,255,255,0.08); padding: 4px; border-radius: 14px; gap: 6px; margin-bottom: 20px; }
     .tab { flex: 1; padding: 12px; border-radius: 10px; border: none; background: transparent; color: #9aa0a6; font-size: 0.92rem; font-weight: 700; cursor: pointer; text-align: center; }
     .tab.active.eleven { background: linear-gradient(135deg, #7c3aed, #6366f1); color: #fff; }
@@ -125,25 +111,23 @@ HTML_CONTENT = """<!DOCTYPE html>
 <body>
   <div class="container">
     <header>
-      <div class="brand">
-        <h1>Voice <span>Studio</span></h1>
-      </div>
-      <div class="badge-halal">🛡️ Ethical & Moderated Platform</div>
+      <div class="brand"><h1>Voice <span>Studio</span></h1></div>
+      <div class="badge-halal">🛡️ Ethical & Moderated</div>
     </header>
 
     <div class="disclaimer-banner">
-      ⚠️ <strong>नैतिक व कानूनी घोषणा:</strong> यह टूल केवल ज्ञान, शिक्षा, सामान्य ज्ञान (GK), समाचार और अच्छे कार्यों के लिए है। अश्लील, गाली-गलौज, रोमांटिक या किसी भी अनुचित कार्य की सख्त मनाही है। सिस्टम ऐसी किसी भी स्क्रिप्ट को स्वतः रिजेक्ट कर देता है।
+      ⚠️ <strong>नैतिक घोषणा:</strong> यह टूल केवल ज्ञान, शिक्षा, GK और अच्छे कार्यों के लिए है। अश्लील, गाली-गलौज या रोमांटिक सामग्री की सख्त मनाही है।
     </div>
 
     <div class="tabs">
-      <button class="tab active eleven" id="tabEleven" onclick="switchTab('eleven')">👑 1. ElevenLabs Engine (Adam / Charlie)</button>
-      <button class="tab free" id="tabFree" onclick="switchTab('free')">⚡ 2. Free Unlimited Engine (Madhur / Swara)</button>
+      <button class="tab active eleven" id="tabEleven" onclick="switchTab('eleven')">👑 1. ElevenLabs Engine (सुपर क्वालिटी)</button>
+      <button class="tab free" id="tabFree" onclick="switchTab('free')">⚡ 2. Free Engine</button>
     </div>
 
     <div class="card">
       <div class="api-box" id="elevenBox">
         <label style="color:#c4b5fd">
-          🔑 अपनी ElevenLabs API Key डालें:
+          🔑 अपनी ElevenLabs API Key डालें (हर महीने 10,000 अक्षर फ्री):
           <a href="https://elevenlabs.io" target="_blank" style="color:#a78bfa">30s में फ्री Key लें ↗</a>
         </label>
         <input type="password" id="elevenKey" placeholder="अपनी ElevenLabs API Key पेस्ट करें..." oninput="localStorage.setItem('user_eleven_key', this.value.trim())">
@@ -155,7 +139,7 @@ HTML_CONTENT = """<!DOCTYPE html>
           <select id="voiceSelect"></select>
         </div>
         <div>
-          <label>स्पीड (Speed): <span id="spVal" style="color:#4285f4">1.0x</span></label>
+          <label>स्पीड: <span id="spVal" style="color:#4285f4">1.0x</span></label>
           <div style="background:#192238; padding:10px 14px; border-radius:12px; display:flex; align-items:center;">
             <input type="range" id="spRange" min="0.7" max="1.4" step="0.05" value="1.0" style="flex:1; accent-color:#4285f4" oninput="document.getElementById('spVal').textContent=this.value+'x'">
           </div>
@@ -163,11 +147,11 @@ HTML_CONTENT = """<!DOCTYPE html>
       </div>
 
       <div>
-        <label>अपनी स्क्रिप्ट यहाँ लिखें (GK, शिक्षा, कहानी आदि):</label>
+        <label>अपनी स्क्रिप्ट यहाँ लिखें:</label>
         <textarea id="scriptInput" placeholder="यहाँ अपनी शिक्षा या GK Quiz स्क्रिप्ट लिखें..."></textarea>
       </div>
 
-      <button class="btn-gen" id="genBtn" onclick="generate()">✨ सुरक्षित आवाज़ बनाएं (Generate Voice)</button>
+      <button class="btn-gen" id="genBtn" onclick="generate()">✨ आवाज़ बनाएं (Generate Voice)</button>
 
       <div class="player-box" id="playerBox">
         <label style="color:#fff">🎧 ऑडियो तैयार है:</label>
@@ -214,13 +198,13 @@ HTML_CONTENT = """<!DOCTYPE html>
       const key = document.getElementById('elevenKey').value.trim();
 
       if(mode === 'eleven' && !key) {
-        alert('ElevenLabs के लिए अपनी फ्री API Key डालें, या ऊपर "Free Unlimited Engine" टैब चुनें!');
+        alert('ElevenLabs के लिए अपनी फ्री API Key डालें, या ऊपर Free Engine टैब चुनें!');
         document.getElementById('elevenKey').focus();
         return;
       }
 
       const btn = document.getElementById('genBtn');
-      btn.disabled = true; btn.textContent = '⏳ सुरक्षा जांच व आवाज़ जनरेशन...';
+      btn.disabled = true; btn.textContent = '⏳ आवाज़ बन रही है...';
 
       try {
         const res = await fetch('/api/tts', {
@@ -229,22 +213,18 @@ HTML_CONTENT = """<!DOCTYPE html>
           body: JSON.stringify({ engine: mode, text, voice, speed, api_key: key })
         });
         const data = await res.json();
-        if(!res.ok || data.error) {
-          throw new Error(data.error || 'त्रुटि हुई');
-        }
+        if(!res.ok || data.error) throw new Error(data.error || 'त्रुटि हुई');
 
         const audioRes = await fetch(data.audio_url);
         loadedBlob = await audioRes.blob();
-        const blobUrl = URL.createObjectURL(loadedBlob);
-
         const player = document.getElementById('audioEl');
-        player.src = blobUrl;
+        player.src = URL.createObjectURL(loadedBlob);
         player.play();
         document.getElementById('playerBox').classList.add('active');
       } catch(e) {
         alert(e.message);
       } finally {
-        btn.disabled = false; btn.textContent = '✨ सुरक्षित आवाज़ बनाएं (Generate Voice)';
+        btn.disabled = false; btn.textContent = '✨ आवाज़ बनाएं (Generate Voice)';
       }
     }
 
@@ -252,12 +232,9 @@ HTML_CONTENT = """<!DOCTYPE html>
       if(!loadedBlob) return;
       const blobUrl = URL.createObjectURL(loadedBlob);
       const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `voice_${Date.now()}.mp3`;
-      document.body.appendChild(a);
-      a.click();
+      a.href = blobUrl; a.download = `voice_${Date.now()}.mp3`;
+      document.body.appendChild(a); a.click();
       document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
     }
 
     window.onload = init;
@@ -279,8 +256,7 @@ def generate_elevenlabs(text, voice_id, api_key, out_path):
         method="POST"
     )
     with urllib.request.urlopen(req, timeout=45) as resp:
-        with open(out_path, "wb") as f:
-            f.write(resp.read())
+        with open(out_path, "wb") as f: f.write(resp.read())
 
 def generate_edge(text, voice_id, speed, out_path):
     pct = int(round((speed - 1.0) * 100))
@@ -290,6 +266,28 @@ def generate_edge(text, voice_id, speed, out_path):
         await comm.save(out_path)
     asyncio.run(_run())
 
+def generate_google_fallback(text, lang_code, out_path):
+    chunks = re.findall(r'([^।\.\?!;\n]+[।\.\?!;\n]*)', text) or [text]
+    audio_bytes = bytearray()
+    for c in chunks:
+        c = c.strip()
+        if not c: continue
+        words = c.split()
+        sub = ""
+        for w in words:
+            if len(sub) + len(w) + 1 <= 150: sub = f"{sub} {w}".strip()
+            else:
+                if sub:
+                    u = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={lang_code}&q={urllib.parse.quote(sub)}"
+                    req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=10) as r: audio_bytes.extend(r.read())
+                sub = w
+        if sub:
+            u = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl={lang_code}&q={urllib.parse.quote(sub)}"
+            req = urllib.request.Request(u, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as r: audio_bytes.extend(r.read())
+    with open(out_path, "wb") as f: f.write(audio_bytes)
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -297,6 +295,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         p = urllib.parse.urlparse(self.path).path
+
+        # Google Search Console File Verification
+        if p == "/googlefdf2add83f6955f5.html":
+            content = b"google-site-verification: googlefdf2add83f6955f5.html"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
         if p == "/" or p == "/index.html":
             html = HTML_CONTENT.replace("ELEVEN_PLACEHOLDER", json.dumps(ELEVENLABS_VOICES))
             html = html.replace("FREE_PLACEHOLDER", json.dumps(FREE_VOICES))
@@ -330,14 +339,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             speed = float(body.get("speed", 1.0))
             key = body.get("api_key", "").strip()
 
-            # --- सामग्री व भाषा सुरक्षा परीक्षण ---
             is_safe, reason = check_content_safety(text)
             if not is_safe:
                 self.send_response(400)
                 self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.end_headers()
-                err_resp = json.dumps({"error": f"⛔ सुरक्षा व नैतिक नियम: {reason}"}, ensure_ascii=False).encode('utf-8')
-                self.wfile.write(err_resp)
+                self.wfile.write(json.dumps({"error": f"⛔ सुरक्षा व नैतिक नियम: {reason}"}, ensure_ascii=False).encode('utf-8'))
                 return
 
             h = hashlib.md5(f"{eng}_{text}_{voice}_{speed}".encode()).hexdigest()
@@ -348,7 +355,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     if eng == "eleven":
                         generate_elevenlabs(text, voice, key, str(out_file))
                     else:
-                        generate_edge(text, voice, speed, str(out_file))
+                        try:
+                            generate_edge(text, voice, speed, str(out_file))
+                        except Exception as e:
+                            lang = "hi" if "hi-" in voice or "mr-" in voice else "en"
+                            generate_google_fallback(text, lang, str(out_file))
 
                 resp = json.dumps({"audio_url": f"/audio/{h}.mp3"}).encode()
                 self.send_response(200)
