@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-StudioVoice AI - Professional Text-to-Speech Web Studio
+VoiceBnao - Professional Text-to-Speech Web Studio
 - True Male & Female Voices (ElevenLabs Multilingual v2 + High-Fidelity Engine)
 - Automatic Deep Pitch Engine for authentic Male voiceovers
 - Modern Glassmorphism Studio UI & 1-Click Direct MP3 Download
@@ -78,7 +78,7 @@ HTML_CONTENT = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StudioVoice AI - Professional Text to Speech</title>
+  <title>VoiceBnao - Text to Speech</title>
   <meta name="description" content="Generate studio-quality AI voiceovers in Hindi & English with ElevenLabs and Neural Voice Engine.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -573,6 +573,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         self.send_error(404)
 
-print(f"🚀 StudioVoice AI running on port {PORT}")
+print(f"🚀 VoiceBnao running on port {PORT}")
 with socketserver.TCPServer(("", PORT), Handler) as httpd:
     httpd.serve_forever()
