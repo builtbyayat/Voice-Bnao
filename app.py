@@ -269,8 +269,8 @@ HTML_CONTENT = """<!DOCTYPE html>
 
     function init() {
       document.getElementById('apiKeyInput').value = localStorage.getItem('sv_eleven_key') || '';
-      document.getElementById('scriptText').value = `Paste here!`;
-      updateCounters();
+      document.getElementById('scriptText').value = ``;
+      updateCounters()
 
       document.getElementById('scriptText').addEventListener('input', updateCounters);
       switchEngine('eleven');
