@@ -256,7 +256,7 @@ HTML_CONTENT = """<!DOCTYPE html>
             <span>Speed: <strong id="speedVal" style="color:var(--primary);">1.0x</strong></span>
           </label>
           <div class="slider-container">
-            <input type="range" id="speedSlider" min="0.75" max="1.35" step="0.05" value="1.0" oninput="document.getElementById('speedVal').textContent=this.value+'x'">
+            <input type="range" id="speedSlider" min="0.50" max="1.5" step="0.05" value="1.0" oninput="document.getElementById('speedVal').textContent=this.value+'x'">
           </div>
         </div>
       </div>
