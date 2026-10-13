@@ -301,9 +301,8 @@ HTML_CONTENT = """<!DOCTYPE html>
 
     function init() {
       document.getElementById('apiKeyInput').value = localStorage.getItem('sv_eleven_key') || '';
-      
-      const sample = `सवाल 1: एक race में तुमने दूसरे नंबर वाले खिलाड़ी को पीछे छोड़ दिया। अब तुम किस नंबर पर हो?\\nA. पहले नंबर पर\\nB. दूसरे नंबर पर\\nC. तीसरे नंबर पर\\nD. आखिरी नंबर पर\\nसही जवाब है: दूसरे नंबर पर`;
-      document.getElementById('scriptText').value = sample;
+
+      document.getElementById('scriptText').value = Paste here!;
       updateCounters();
 
       document.getElementById('scriptText').addEventListener('input', updateCounters);
