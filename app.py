@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-import os, sys, json, hashlib, asyncio, webbrowser, http.server, socketserver, urllib.parse, urllib.request
+import os, sys, json, hashlib, asyncio, http.server, socketserver, urllib.parse, urllib.request, re
 from pathlib import Path
 
-# Auto-install edge-tts if missing
+# Auto-install edge-tts
 try:
     import edge_tts
 except ImportError:
@@ -10,18 +10,65 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "edge-tts"])
     import edge_tts
 
-PORT = 5000
+PORT = int(os.environ.get("PORT", 5000))
 BASE_DIR = Path(__file__).resolve().parent
 AUDIO_DIR = BASE_DIR / "audio_output"
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+
+# ----------------- कड़े नैतिक व भाषा फ़िल्टर्स -----------------
+ADULT_WORDS = {
+    "sex", "sexy", "nude", "porn", "erotic", "orgasm", "penis", "vagina", "boobs", "breast",
+    "kiss", "kissing", "makeout", "strip", "lust", "seduce", "seduction", "horny", "intimate",
+    "naked", "touching", "sensual", "intercourse", "hot voice", "sexy voice",
+    "सेक्स", "पोर्न", "नंगा", "नग्न", "संभोग", "हवस", "जिस्म", "कामुक", "चुंबन", "स्तन", "योनि", "लिंग",
+    "nangi", "nanga", "sambhog", "chumban", "hawas", "jism", "kamuk", "chudai", "chuda",
+    "bhosdi", "choot", "loda", "lauda", "lund", "gaand", "muth", "mutth"
+}
+
+ROMANTIC_WORDS = {
+    "babu", "shona", "jaaneman", "sweetheart", "darling", "baby", "hug me", "kiss me", "love you",
+    "i love you", "meri jaan", "mohabbat", "aashiqui", "aashiq", "deewana", "deewani", "dilruba",
+    "mehboob", "mehbooba", "hoth", "honth", "baahon", "bahen", "gale lag jao", "lip kiss", "pyaar karo",
+    "आई लव यू", "बाबू", "शोना", "जानेमन", "डार्लिंग", "मोहब्बत", "आशिक़ी", "दीवाना", "दीवानी", "होठ", "बाहों",
+    "गले लगाओ", "प्यार करो", "माशूका", "दिलरुबा", "इश्क़", "हुस्न", "मादक", "रोमांस", "romance", "romantic"
+}
+
+ABUSIVE_WORDS = {
+    "bhenchod", "madarchod", "behenchod", "bhadwe", "chutiya", "harami", "kutta", "kameena", "randi",
+    "suar", "bastard", "fuck", "bitch", "asshole", "motherfucker", "whore", "slut", "terrorist",
+    "मादरचोद", "बहनचोद", "भड़वे", "चूतिया", "हरामी", "कमीना", "रंडी", "कुत्ता", "सूअर"
+}
+
+def check_content_safety(text):
+    # 1. भाषा सुरक्षा जांच (सिर्फ हिन्दी, हिंग्लिश, इंग्लिश, नंबर्स और विराम चिह्नों की अनुमति)
+    # यह किसी अन्य विदेशी भाषा में चालाकी से लिखे गए शब्दों को सीधे रिजेक्ट कर देगा
+    allowed_pattern = r'^[\u0900-\u097F\w\s.,?!:;\'"()/\-\n\r\t]+$'
+    if not re.match(allowed_pattern, text):
+        return False, "नैतिक सुरक्षा कारणों से केवल हिन्दी, हिंग्लिश और इंग्लिश स्क्रिप्ट्स की अनुमति है।"
+
+    clean = text.lower()
+    clean_words = set(re.sub(r'[^\w\s]', ' ', clean).split())
+
+    for w in clean_words:
+        if w in ADULT_WORDS:
+            return False, "अश्लील या वयस्क (Adult/NSFW) सामग्री नियमों के विरुद्ध है।"
+        if w in ABUSIVE_WORDS:
+            return False, "गाली-गलौज या नफरत फैलाने वाली भाषा की सख्त मनाही है।"
+        if w in ROMANTIC_WORDS:
+            return False, "रोमांटिक, उत्तेजक या अनैतिक शब्दों की अनुमति नहीं है।"
+
+    for phrase in ["kiss me", "love you", "i love you", "hug me", "meri jaan", "pyaar karo", "gale lag"]:
+        if phrase in clean:
+            return False, "रोमांटिक या अवांछित वाक्य ब्लॉक कर दिए गए हैं।"
+
+    return True, "Safe"
 
 ELEVENLABS_VOICES = [
     {"id": "pNInz6obpgDQGcFmaJgB", "name": "Adam (एडम) - सबसे लोकप्रिय डीप आवाज़ (GK/Facts/Shorts)", "gender": "Male"},
     {"id": "IKne3meq5aSn9XLyUdCD", "name": "Charlie (चार्ली) - रहस्य और कहानियों के लिए", "gender": "Male"},
     {"id": "nPczCjzI2devNBz1zQrb", "name": "Brian (ब्रायन) - गंभीर और प्रोफेशनल आवाज़", "gender": "Male"},
     {"id": "JBFqnCBsd6RMkjVDRZzb", "name": "George (जॉर्ज) - गहरा और दमदार नरेटर", "gender": "Male"},
-    {"id": "EXAVITQu4vr4xnSDxMaL", "name": "Sarah (सारा) - नेचुरल फीमेल आवाज़", "gender": "Female"},
-    {"id": "pFZP5JQG7iQjIQuC4Bku", "name": "Lily (लिली) - शांत और मधुर फीमेल आवाज़", "gender": "Female"}
+    {"id": "EXAVITQu4vr4xnSDxMaL", "name": "Sarah (सारा) - शांत और गंभीर फीमेल आवाज़", "gender": "Female"}
 ]
 
 FREE_VOICES = [
@@ -36,19 +83,27 @@ HTML_CONTENT = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ultimate AI Voice Studio - ElevenLabs Quality</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Google Search (SEO) Tags -->
+  <title>Free AI Voice Studio - Text to Speech Hindi & English</title>
+  <meta name="description" content="मुफ्त AI वॉइस स्टूडियो - ElevenLabs और फ्री न्यूरल इंजन से बनाएं हाई-क्वालिटी हिन्दी और इंग्लिश ऑडियो।">
+  <meta name="keywords" content="Text to speech Hindi, AI Voice Generator, ElevenLabs Free, YouTube Shorts voiceover">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+Devanagari:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', sans-serif; }
     body { background: #090d16; color: #f0f4f9; min-height: 100vh; padding: 20px 14px; }
     .container { max-width: 900px; margin: 0 auto; }
     header { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; background: #111728; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; margin-bottom: 20px; }
-    .brand h1 { font-size: 1.2rem; font-weight: 700; }
+    .brand h1 { font-size: 1.25rem; font-weight: 700; }
     .brand span { color: #fbbc04; }
+    .badge-halal { background: rgba(52, 168, 83, 0.15); color: #34a853; border: 1px solid rgba(52, 168, 83, 0.3); padding: 5px 12px; border-radius: 99px; font-size: 0.75rem; font-weight: 700; }
+    .disclaimer-banner {
+      background: rgba(234, 67, 53, 0.08); border: 1px solid rgba(234, 67, 53, 0.25);
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.8rem; color: #fca5a5; line-height: 1.5;
+    }
     .tabs { display: flex; background: #111728; border: 1px solid rgba(255,255,255,0.08); padding: 4px; border-radius: 14px; gap: 6px; margin-bottom: 20px; }
     .tab { flex: 1; padding: 12px; border-radius: 10px; border: none; background: transparent; color: #9aa0a6; font-size: 0.92rem; font-weight: 700; cursor: pointer; text-align: center; }
-    .tab.active.eleven { background: linear-gradient(135deg, #7c3aed, #6366f1); color: #fff; box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4); }
-    .tab.active.free { background: linear-gradient(135deg, #4285f4, #1a73e8); color: #fff; box-shadow: 0 4px 16px rgba(66, 133, 244, 0.4); }
+    .tab.active.eleven { background: linear-gradient(135deg, #7c3aed, #6366f1); color: #fff; }
+    .tab.active.free { background: linear-gradient(135deg, #4285f4, #1a73e8); color: #fff; }
     .card { background: #111728; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 12px 36px rgba(0,0,0,0.4); }
     .api-box { background: rgba(124, 58, 237, 0.1); border: 1px dashed rgba(124, 58, 237, 0.35); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
     .api-box input { background: #0f1524; border: 1px solid rgba(255,255,255,0.12); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 0.9rem; outline: none; }
@@ -64,17 +119,20 @@ HTML_CONTENT = """<!DOCTYPE html>
     .player-box.active { display: flex; }
     audio { width: 100%; }
     .btn-down { background: linear-gradient(135deg, #34a853, #227b3b); color: white; border: none; padding: 14px; border-radius: 12px; font-size: 1rem; font-weight: 700; cursor: pointer; text-align: center; }
-    .btn-down:hover { transform: translateY(-2px); }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <div class="brand">
-        <h1>Ultimate <span>AI Voice Studio</span></h1>
+        <h1>Voice <span>Studio</span></h1>
       </div>
-      <span style="color:#a78bfa; font-weight:600; font-size:0.85rem">👑 ElevenLabs Quality</span>
+      <div class="badge-halal">🛡️ Ethical & Moderated Platform</div>
     </header>
+
+    <div class="disclaimer-banner">
+      ⚠️ <strong>नैतिक व कानूनी घोषणा:</strong> यह टूल केवल ज्ञान, शिक्षा, सामान्य ज्ञान (GK), समाचार और अच्छे कार्यों के लिए है। अश्लील, गाली-गलौज, रोमांटिक या किसी भी अनुचित कार्य की सख्त मनाही है। सिस्टम ऐसी किसी भी स्क्रिप्ट को स्वतः रिजेक्ट कर देता है।
+    </div>
 
     <div class="tabs">
       <button class="tab active eleven" id="tabEleven" onclick="switchTab('eleven')">👑 1. ElevenLabs Engine (Adam / Charlie)</button>
@@ -84,10 +142,10 @@ HTML_CONTENT = """<!DOCTYPE html>
     <div class="card">
       <div class="api-box" id="elevenBox">
         <label style="color:#c4b5fd">
-          🔑 ElevenLabs Free API Key (हर महीने 10,000 अक्षर फ्री):
-          <a href="https://elevenlabs.io" target="_blank" style="color:#a78bfa">यहाँ से 30 सेकंड में फ्री लें ↗</a>
+          🔑 अपनी ElevenLabs API Key डालें:
+          <a href="https://elevenlabs.io" target="_blank" style="color:#a78bfa">30s में फ्री Key लें ↗</a>
         </label>
-        <input type="password" id="elevenKey" placeholder="अपनी ElevenLabs API Key डालें (उदा. sk_...)" oninput="localStorage.setItem('eleven_key', this.value.trim())">
+        <input type="password" id="elevenKey" placeholder="अपनी ElevenLabs API Key पेस्ट करें..." oninput="localStorage.setItem('user_eleven_key', this.value.trim())">
       </div>
 
       <div class="row">
@@ -104,16 +162,16 @@ HTML_CONTENT = """<!DOCTYPE html>
       </div>
 
       <div>
-        <label>अपनी पूरी स्क्रिप्ट यहाँ लिखें:</label>
-        <textarea id="scriptInput" placeholder="यहाँ अपनी GK Quiz या कहानी लिखें..."></textarea>
+        <label>अपनी स्क्रिप्ट यहाँ लिखें (GK, शिक्षा, कहानी आदि):</label>
+        <textarea id="scriptInput" placeholder="यहाँ अपनी शिक्षा या GK Quiz स्क्रिप्ट लिखें..."></textarea>
       </div>
 
-      <button class="btn-gen" id="genBtn" onclick="generate()">✨ असली आवाज़ बनाएं (Generate Audio)</button>
+      <button class="btn-gen" id="genBtn" onclick="generate()">✨ सुरक्षित आवाज़ बनाएं (Generate Voice)</button>
 
       <div class="player-box" id="playerBox">
-        <label style="color:#fff">🎧 जनरेट किया गया ऑडियो सुनें:</label>
+        <label style="color:#fff">🎧 ऑडियो तैयार है:</label>
         <audio id="audioEl" controls preload="auto"></audio>
-        <button class="btn-down" onclick="downloadMp3()">⬇️ MP3 ऑडियो सीधे अपने लैपटॉप में डाउनलोड करें (100% Working)</button>
+        <button class="btn-down" onclick="downloadMp3()">⬇️ MP3 सीधे डाउनलोड करें (100% Guaranteed)</button>
       </div>
     </div>
   </div>
@@ -125,7 +183,7 @@ HTML_CONTENT = """<!DOCTYPE html>
     let loadedBlob = null;
 
     function init() {
-      document.getElementById('elevenKey').value = localStorage.getItem('eleven_key') || '';
+      document.getElementById('elevenKey').value = localStorage.getItem('user_eleven_key') || '';
       document.getElementById('scriptInput').value = `सही जवाब है तीन।\\n\\nसवाल नंबर चार। कौन-सा पक्षी पीछे की तरफ भी उड़ सकता है?\\nसही जवाब है हमिंगबर्ड।\\n\\nसवाल नंबर पाँच। दुनिया का सबसे बड़ा रेगिस्तान कौन-सा है?\\nसही जवाब है अंटार्कटिका।`;
       switchTab('eleven');
     }
@@ -155,13 +213,13 @@ HTML_CONTENT = """<!DOCTYPE html>
       const key = document.getElementById('elevenKey').value.trim();
 
       if(mode === 'eleven' && !key) {
-        alert('ElevenLabs के लिए कृपया ऊपर अपनी फ्री API Key डालें! (या ऊपर Free Unlimited Engine टैब चुनें)');
+        alert('ElevenLabs के लिए अपनी फ्री API Key डालें, या ऊपर "Free Unlimited Engine" टैब चुनें!');
         document.getElementById('elevenKey').focus();
         return;
       }
 
       const btn = document.getElementById('genBtn');
-      btn.disabled = true; btn.textContent = '⏳ आवाज़ बन रही है... कृपया प्रतीक्षा करें';
+      btn.disabled = true; btn.textContent = '⏳ सुरक्षा जांच व आवाज़ जनरेशन...';
 
       try {
         const res = await fetch('/api/tts', {
@@ -170,7 +228,9 @@ HTML_CONTENT = """<!DOCTYPE html>
           body: JSON.stringify({ engine: mode, text, voice, speed, api_key: key })
         });
         const data = await res.json();
-        if(!res.ok || data.error) throw new Error(data.error || 'त्रुटि हुई');
+        if(!res.ok || data.error) {
+          throw new Error(data.error || 'त्रुटि हुई');
+        }
 
         const audioRes = await fetch(data.audio_url);
         loadedBlob = await audioRes.blob();
@@ -181,9 +241,9 @@ HTML_CONTENT = """<!DOCTYPE html>
         player.play();
         document.getElementById('playerBox').classList.add('active');
       } catch(e) {
-        alert('त्रुटि: ' + e.message);
+        alert(e.message);
       } finally {
-        btn.disabled = false; btn.textContent = '✨ असली आवाज़ बनाएं (Generate Audio)';
+        btn.disabled = false; btn.textContent = '✨ सुरक्षित आवाज़ बनाएं (Generate Voice)';
       }
     }
 
@@ -241,6 +301,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             html = html.replace("FREE_PLACEHOLDER", json.dumps(FREE_VOICES))
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(html.encode('utf-8'))))
             self.end_headers()
             self.wfile.write(html.encode('utf-8'))
             return
@@ -252,6 +313,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 with open(fp, "rb") as f: data = f.read()
                 self.send_response(200)
                 self.send_header("Content-Type", "audio/mpeg")
+                self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
                 return
@@ -267,6 +329,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             speed = float(body.get("speed", 1.0))
             key = body.get("api_key", "").strip()
 
+            # --- सामग्री व भाषा सुरक्षा परीक्षण ---
+            is_safe, reason = check_content_safety(text)
+            if not is_safe:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                err_resp = json.dumps({"error": f"⛔ सुरक्षा व नैतिक नियम: {reason}"}, ensure_ascii=False).encode('utf-8')
+                self.wfile.write(err_resp)
+                return
+
             h = hashlib.md5(f"{eng}_{text}_{voice}_{speed}".encode()).hexdigest()
             out_file = AUDIO_DIR / f"{h}.mp3"
 
@@ -280,19 +352,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 resp = json.dumps({"audio_url": f"/audio/{h}.mp3"}).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(resp)))
                 self.end_headers()
                 self.wfile.write(resp)
             except Exception as e:
                 self.send_response(500)
-                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Type", "application/json; charset=utf-8")
                 self.end_headers()
-                self.wfile.write(json.dumps({"error": str(e)}).encode())
+                self.wfile.write(json.dumps({"error": str(e)}, ensure_ascii=False).encode('utf-8'))
             return
         self.send_error(404)
 
-socketserver.TCPServer.allow_reuse_address = True
-print(f"\n🚀 AI Voice Studio running at: http://localhost:{PORT}")
-try: webbrowser.open(f"http://localhost:{PORT}")
-except: pass
+print(f"\n🚀 Voice Studio running on port {PORT}")
 with socketserver.TCPServer(("", PORT), Handler) as httpd:
     httpd.serve_forever()
